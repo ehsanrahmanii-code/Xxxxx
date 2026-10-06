@@ -22,7 +22,11 @@ jobs:
             3.12
             3.11
 
-      - uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses (SDK is preinstalled on runner)
+        run: |
+          SDKM=$(ls $ANDROID_HOME/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)
+          if [ -n "$SDKM" ]; then yes | "$SDKM" --licenses > /dev/null || true; fi
+          echo "ANDROID_HOME=$ANDROID_HOME"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -32,7 +36,89 @@ jobs:
         run: |
           set -e
           for z in ./*.zip; do [ -f "$z" ] && unzip -o -q "$z" -d unz_extract || true; done
-          SRC=$(grep -rl "def run_titan" --include=*.py . 2>/dev/null | grep -v "^./proj/" | head -1 || true) if [ -z "$SRC" ]; then echo "ERROR: no TITAN .py (or zip containing it) found in the repo"; exit 1; fi echo "Using $SRC" mkdir -p proj/app/src/main/java/com/titan/app proj/app/src/main/python proj/app/src/main/res/values proj/app/src/main/res/xml cp "$SRC" proj/app/src/main/python/titan_app.py cat > proj/settings.gradle.kts <<'EOF_0' pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } } dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS) repositories { google(); mavenCentral() } } rootProject.name = "TitanPro" include(":app") EOF_0 cat > proj/build.gradle.kts <<'EOF_1' plugins { id("com.android.application") version "8.5.2" apply false id("org.jetbrains.kotlin.android") version "1.9.24" apply false id("com.chaquo.python") version "16.1.0" apply false } EOF_1 cat > proj/gradle.properties <<'EOF_2' org.gradle.jvmargs=-Xmx3g android.useAndroidX=true android.nonTransitiveRClass=true EOF_2 cat > proj/app/build.gradle.kts <<'EOF_3' plugins { id("com.android.application") id("org.jetbrains.kotlin.android") id("com.chaquo.python") } android { namespace = "com.titan.app" compileSdk = 34 defaultConfig { applicationId = "com.titan.app" minSdk = 24 targetSdk = 34 versionCode = 60 versionName = "V60" ndk { abiFilters += listOf("arm64-v8a", "x86_64") } } buildTypes { release { isMinifyEnabled = false signingConfig = signingConfigs.getByName("debug") // personal use; replace for Play Store } } compileOptions { sourceCompatibility = JavaVersion.VERSION_17 targetCompatibility = JavaVersion.VERSION_17 } kotlinOptions { jvmTarget = "17" } } chaquopy { defaultConfig { version = "3.12" pip { install("numpy") install("pandas") install("requests") install("flask") install("waitress") install("websocket-client") } } } dependencies { implementation("androidx.core:core-ktx:1.13.1") implementation("androidx.appcompat:appcompat:1.7.0") } EOF_3 cat > proj/app/src/main/AndroidManifest.xml <<'EOF_4' <?xml version="1.0" encoding="utf-8"?> <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          SRC=$(grep -rl "def run_titan" --include=*.py . 2>/dev/null | grep -v "^./proj/" | head -1 || true)
+          if [ -z "$SRC" ]; then echo "ERROR: no TITAN .py (or zip containing it) found in the repo"; exit 1; fi
+          echo "Using $SRC"
+          mkdir -p proj/app/src/main/java/com/titan/app proj/app/src/main/python proj/app/src/main/res/values proj/app/src/main/res/xml
+          cp "$SRC" proj/app/src/main/python/titan_app.py
+          cat > proj/settings.gradle.kts <<'EOF_0'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "TitanPro"
+          include(":app")
+          EOF_0
+          cat > proj/build.gradle.kts <<'EOF_1'
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+              id("com.chaquo.python") version "16.1.0" apply false
+          }
+          EOF_1
+          cat > proj/gradle.properties <<'EOF_2'
+          org.gradle.jvmargs=-Xmx3g
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF_2
+          cat > proj/app/build.gradle.kts <<'EOF_3'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+              id("com.chaquo.python")
+          }
+
+          android {
+              namespace = "com.titan.app"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.titan.app"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 60
+                  versionName = "V60"
+                  ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      signingConfig = signingConfigs.getByName("debug") // personal use; replace for Play Store
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+          }
+
+          chaquopy {
+              defaultConfig {
+                  version = "3.12"
+                  pip {
+                      install("numpy")
+                      install("pandas")
+                      install("requests")
+                      install("flask")
+                      install("waitress")
+                      install("websocket-client")
+                  }
+              }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.13.1")
+              implementation("androidx.appcompat:appcompat:1.7.0")
+          }
+          EOF_3
+          cat > proj/app/src/main/AndroidManifest.xml <<'EOF_4'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
